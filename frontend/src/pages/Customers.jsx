@@ -23,13 +23,16 @@ export default function Customers() {
   const [report, setReport] = useState(null);
   const [segmentSummary, setSegmentSummary] = useState(null);
   const [recomputing, setRecomputing] = useState(false);
+  const [segmentError, setSegmentError] = useState('');
 
   function load(q) {
     client.get('/customers', { params: q ? { search: q } : {} }).then(({ data }) => setCustomers(data));
   }
 
   function loadSegmentSummary() {
-    client.get('/customers/segments/summary').then(({ data }) => setSegmentSummary(data));
+    client.get('/customers/segments/summary')
+      .then(({ data }) => { setSegmentSummary(data); setSegmentError(''); })
+      .catch((err) => setSegmentError(err.response?.data?.error || 'Could not load segment summary — is the backend fully deployed?'));
   }
 
   useEffect(() => {
@@ -40,10 +43,13 @@ export default function Customers() {
 
   async function handleRecompute() {
     setRecomputing(true);
+    setSegmentError('');
     try {
       await client.post('/customers/segment');
       load(search);
       loadSegmentSummary();
+    } catch (err) {
+      setSegmentError(err.response?.data?.error || `Recompute failed (${err.response?.status || 'network error'}) — check that the backend has the latest code deployed.`);
     } finally {
       setRecomputing(false);
     }
@@ -70,6 +76,12 @@ export default function Customers() {
         )}
       </div>
       <p className="text-sm text-[var(--color-text-muted)] mb-6">Everyone who's bought from the shop by name — search, see who your regulars are, and who's at risk of drifting away.</p>
+
+      {segmentError && (
+        <div className="ledger-card rounded-b-md p-4 mb-6 text-sm" style={{ borderLeft: '3px solid var(--color-stamp-red)', color: 'var(--color-stamp-red)' }}>
+          {segmentError}
+        </div>
+      )}
 
       {segmentSummary && segmentSummary.segments.length > 0 && (
         <div className="ledger-card rounded-b-md p-4 mb-6">
