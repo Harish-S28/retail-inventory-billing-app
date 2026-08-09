@@ -12,6 +12,13 @@ const NAV_ITEMS = [
   { to: '/alerts', label: 'Alerts', icon: '06' },
   { to: '/ai-assistant', label: 'AI Assistant', icon: '07' },
   { to: '/staff', label: 'Staff', icon: '08', adminOnly: true },
+  // ML Application
+  {
+    external: true,
+    label: 'Customer Segmentation',
+    icon: '09',
+    href: 'https://customer-segmentation-pearl.vercel.app/index.html'
+  },
 ];
 
 export default function Layout({ children }) {
