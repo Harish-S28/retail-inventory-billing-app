@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { to: '/staff', label: 'Staff', icon: '08', adminOnly: true },
   // ML Application
   {
-    external: true,
+    //external: true,
     label: 'Customer Segmentation',
     icon: '09',
     href: 'https://customer-segmentation-pearl.vercel.app/index.html'
