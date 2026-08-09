@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const { sequelize } = require('./models');
 const scheduleAlertJob = require('./utils/alertJob');
+const scheduleSegmentJob = require('./utils/segmentJob');
 
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
@@ -43,6 +44,7 @@ const PORT = process.env.PORT || 4000;
 async function start() {
   await sequelize.sync(); // creates tables if they don't exist
   scheduleAlertJob();
+  scheduleSegmentJob();
   app.listen(PORT, () => console.log(`Retail backend running on http://localhost:${PORT}`));
 }
 
