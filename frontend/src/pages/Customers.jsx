@@ -2,21 +2,52 @@ import { useEffect, useState } from 'react';
 import client from '../api/client';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
+import StatusStamp from '../components/StatusStamp';
+import { useAuth } from '../context/AuthContext';
+
+const SEGMENT_VARIANT = {
+  'Loyal Customer': 'green',
+  'High-Value Customer': 'green',
+  'Frequent Buyer': 'amber',
+  'New Customer': 'amber',
+  'Occasional Buyer': 'amber',
+  'At-Risk Customer': 'red',
+  'Lost Customer': 'red',
+};
 
 export default function Customers() {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [customers, setCustomers] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [report, setReport] = useState(null);
+  const [segmentSummary, setSegmentSummary] = useState(null);
+  const [recomputing, setRecomputing] = useState(false);
 
   function load(q) {
     client.get('/customers', { params: q ? { search: q } : {} }).then(({ data }) => setCustomers(data));
   }
 
+  function loadSegmentSummary() {
+    client.get('/customers/segments/summary').then(({ data }) => setSegmentSummary(data));
+  }
+
   useEffect(() => {
     load();
+    loadSegmentSummary();
     client.get('/dashboard/customer-summary', { params: { range: 'thisMonth' } }).then(({ data }) => setReport(data));
   }, []);
+
+  async function handleRecompute() {
+    setRecomputing(true);
+    try {
+      await client.post('/customers/segment');
+      load(search);
+      loadSegmentSummary();
+    } finally {
+      setRecomputing(false);
+    }
+  }
 
   function handleSearch(e) {
     const q = e.target.value;
@@ -26,8 +57,40 @@ export default function Customers() {
 
   return (
     <Layout>
-      <h1 className="font-[var(--font-display)] text-2xl font-semibold mb-1">Customers</h1>
-      <p className="text-sm text-[var(--color-text-muted)] mb-6">Everyone who's bought from the shop by name — search, and see who your regulars are.</p>
+      <div className="flex items-start justify-between mb-1 gap-4">
+        <h1 className="font-[var(--font-display)] text-2xl font-semibold">Customers</h1>
+        {user.role === 'admin' && (
+          <button
+            onClick={handleRecompute} disabled={recomputing}
+            className="text-white text-xs font-medium px-3 py-1.5 rounded disabled:opacity-50 shrink-0"
+            style={{ background: 'var(--color-ink)' }}
+          >
+            {recomputing ? 'Recomputing…' : 'Recompute segments'}
+          </button>
+        )}
+      </div>
+      <p className="text-sm text-[var(--color-text-muted)] mb-6">Everyone who's bought from the shop by name — search, see who your regulars are, and who's at risk of drifting away.</p>
+
+      {segmentSummary && segmentSummary.segments.length > 0 && (
+        <div className="ledger-card rounded-b-md p-4 mb-6">
+          <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] font-medium mb-3">
+            Segments {segmentSummary.lastComputedAt && <span className="normal-case font-normal">· last updated {new Date(segmentSummary.lastComputedAt).toLocaleString()}</span>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {segmentSummary.segments.map((s) => (
+              <div key={s.segment} className="flex items-center gap-1.5">
+                <StatusStamp variant={SEGMENT_VARIANT[s.segment] || 'amber'}>{s.segment}</StatusStamp>
+                <span className="mono-num text-xs text-[var(--color-text-muted)]">×{s.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {segmentSummary && segmentSummary.segments.length === 0 && user.role === 'admin' && (
+        <div className="ledger-card rounded-b-md p-4 mb-6 text-sm text-[var(--color-text-muted)]">
+          Customers haven't been segmented yet. Click "Recompute segments" above to run it for the first time — it re-runs automatically every day after that.
+        </div>
+      )}
 
       {report && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -51,6 +114,7 @@ export default function Customers() {
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-[var(--color-text-muted)] border-b border-[var(--color-rule)]">
                   <th className="px-4 py-3 font-medium">Name</th>
+                  <th className="px-4 py-3 font-medium">Segment</th>
                   <th className="px-4 py-3 font-medium">Bills</th>
                   <th className="px-4 py-3 font-medium">Spent</th>
                   <th className="px-4 py-3 font-medium">Last purchase</th>
@@ -64,6 +128,9 @@ export default function Customers() {
                     className={`border-b border-[var(--color-rule)] last:border-0 cursor-pointer hover:bg-[var(--color-paper)] ${selectedId === c.id ? 'bg-[var(--color-paper)]' : ''}`}
                   >
                     <td className="px-4 py-3 font-medium">{c.name}{c.phone && <div className="text-xs text-[var(--color-text-muted)] font-normal">{c.phone}</div>}</td>
+                    <td className="px-4 py-3">
+                      {c.segment ? <StatusStamp variant={SEGMENT_VARIANT[c.segment] || 'amber'}>{c.segment}</StatusStamp> : <span className="text-xs text-[var(--color-text-muted)]">—</span>}
+                    </td>
                     <td className="px-4 py-3 mono-num">{c.totalPurchases}</td>
                     <td className="px-4 py-3 mono-num">₹{c.totalAmountSpent}</td>
                     <td className="px-4 py-3 text-xs text-[var(--color-text-muted)]">
@@ -138,6 +205,11 @@ function CustomerDetail({ id, onUpdated }) {
             <div>
               <div className="font-[var(--font-display)] text-lg font-semibold">{customer.name}</div>
               {customer.phone && <div className="text-xs text-[var(--color-text-muted)]">{customer.phone}</div>}
+              {customer.segment && (
+                <div className="mt-1.5">
+                  <StatusStamp variant={SEGMENT_VARIANT[customer.segment] || 'amber'}>{customer.segment}</StatusStamp>
+                </div>
+              )}
             </div>
             <button onClick={() => setEditing(true)} className="text-xs underline text-[var(--color-text-muted)]">Edit</button>
           </div>
