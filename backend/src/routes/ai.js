@@ -86,7 +86,7 @@ async function getContext(retailerId) {
         isUnknown: false
       },
       order: [['totalAmountSpent', 'DESC']],
-      limit: 15
+      limit: 50
     })
   ]);
 
@@ -188,7 +188,7 @@ function buildAIContext(context) {
         .join(', ') || 'none'
     }.`,
 
-    `Known customers, ranked by total amount spent (name: bills, total spent, last purchase): ${
+    `Known customers, ranked by total amount spent (name: bills, total spent, last purchase, segment): ${
       context.customers
         .map(
           c =>
@@ -198,10 +198,12 @@ function buildAIContext(context) {
                     .toISOString()
                     .slice(0, 10)
                 : 'never'
-            }`
+            }, segment: ${c.segment || 'not yet segmented'}`
         )
         .join(' | ') || 'no known customers yet'
-    }.`
+    }.`,
+
+    `Customer segments in use: New Customer, Loyal Customer, High-Value Customer, Frequent Buyer, Occasional Buyer, At-Risk Customer, Lost Customer. These come from an RFM (Recency/Frequency/Monetary) analysis recomputed daily. "At-Risk" means a customer who used to buy often but hasn't recently - good candidates for a follow-up or discount. "Lost" means over 90 days since their last purchase. When asked which customers to target, prioritize, or offer discounts to, reason from these segments.`
   ];
 
   return lines.join('\n');
@@ -403,7 +405,47 @@ function answerLocally(question, context) {
     return `You currently have ${context.products.length} active product(s) in your catalog.`;
   }
 
-  return `I can answer questions like "What were today's sales?", "Which product sold the most this month?", "What's my profit this month?", "What's running low on stock?", or "What's nearing expiry?". Try rephrasing your question along those lines.`;
+  // --- Segmentation-aware questions (local fallback, no Gemini needed) ---
+  const segmentMatch = [
+    ['loyal', 'Loyal Customer'],
+    ['at.?risk', 'At-Risk Customer'],
+    ['lost', 'Lost Customer'],
+    ['high.?value', 'High-Value Customer'],
+    ['frequent', 'Frequent Buyer'],
+    ['occasional', 'Occasional Buyer'],
+    ['new customer', 'New Customer'],
+  ].find(([pattern]) => new RegExp(pattern).test(q));
+
+  if (segmentMatch) {
+    const [, segmentLabel] = segmentMatch;
+    const matches = context.customers.filter((c) => c.segment === segmentLabel);
+    if (matches.length === 0) {
+      return `No customers are currently classified as "${segmentLabel}". Segments are recomputed daily (or on demand from the Customers page) - if this feels off, try recomputing.`;
+    }
+    const list = matches.slice(0, 10).map((c) => `${c.name} (₹${c.totalAmountSpent}, ${c.totalPurchases} bills)`).join(', ');
+    return `${matches.length} customer(s) are "${segmentLabel}": ${list}${matches.length > 10 ? ', and more' : ''}.`;
+  }
+
+  if (/discount|should receive|target|reward/.test(q) && /customer/.test(q)) {
+    const loyalOrHighValue = context.customers.filter((c) => c.segment === 'Loyal Customer' || c.segment === 'High-Value Customer');
+    const atRisk = context.customers.filter((c) => c.segment === 'At-Risk Customer');
+    if (loyalOrHighValue.length === 0 && atRisk.length === 0) {
+      return `No customers are segmented yet, or none currently fall into a discount-worthy segment. Try recomputing segments from the Customers page first.`;
+    }
+    const parts = [];
+    if (loyalOrHighValue.length > 0) parts.push(`reward your loyal/high-value customers (${loyalOrHighValue.slice(0, 5).map((c) => c.name).join(', ')}) to retain them`);
+    if (atRisk.length > 0) parts.push(`win back at-risk customers (${atRisk.slice(0, 5).map((c) => c.name).join(', ')}) before they're lost entirely`);
+    return `Based on current segments, I'd ${parts.join(', and ')}.`;
+  }
+
+  if (/top.*(loyal|customer)|best customer/.test(q)) {
+    const ranked = [...context.customers].sort((a, b) => b.totalAmountSpent - a.totalAmountSpent).slice(0, 10);
+    if (ranked.length === 0) return `No known customers yet.`;
+    const list = ranked.map((c, i) => `${i + 1}. ${c.name} (₹${c.totalAmountSpent}, ${c.segment || 'unsegmented'})`).join(' | ');
+    return `Your top customers by spend: ${list}.`;
+  }
+
+  return `I can answer questions like "What were today's sales?", "Which product sold the most this month?", "What's my profit this month?", "What's running low on stock?", "What's nearing expiry?", "Show my loyal customers", "Which customers are at risk?", or "Which customers should get a discount?". Try rephrasing your question along those lines.`;
 }
 
 /*
