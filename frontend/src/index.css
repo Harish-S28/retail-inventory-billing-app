@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fraunces", serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+
+  --color-ink: #1B2432;
+  --color-ink-light: #2A3547;
+  --color-paper: #FAF8F3;
+  --color-paper-raised: #FFFFFF;
+  --color-rule: #DCD6C8;
+  --color-stamp-amber: #C1791F;
+  --color-stamp-amber-bg: #FBF0DE;
+  --color-ledger-green: #3F6B52;
+  --color-ledger-green-bg: #E7EFE9;
+  --color-stamp-red: #A63A32;
+  --color-stamp-red-bg: #F7E7E5;
+  --color-text-ink: #262019;
+  --color-text-muted: #6B6255;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-text-ink);
+  font-family: var(--font-body);
+}
+
+/* Signature element: perforated ledger-card top edge, like a torn receipt stub */
+.ledger-card {
+  position: relative;
+  background: var(--color-paper-raised);
+  border: 1px solid var(--color-rule);
+  border-top: none;
+}
+.ledger-card::before {
+  content: "";
+  display: block;
+  height: 6px;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--color-rule) 0,
+    var(--color-rule) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  border-top: 1px solid var(--color-rule);
+}
+
+.stamp {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: 3px;
+  border: 1.5px solid currentColor;
+  display: inline-block;
+  transform: rotate(-1.5deg);
+}
+
+.mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--color-rule); border-radius: 4px; }

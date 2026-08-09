@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment secrets - never commit these
+.env
+*/.env
+
+# Backend local database
+backend/data/*.sqlite
+backend/data/*.sqlite-journal
+
+# Build output
+dist/
+*/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
