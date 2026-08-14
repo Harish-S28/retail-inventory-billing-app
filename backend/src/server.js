@@ -33,7 +33,14 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/customers', customersRoutes);
 
-app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
+const path = require('path');
+app.use(express.static(path.join(__dirname, '../../frontend/dist')));
+
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
+});
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });

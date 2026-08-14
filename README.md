@@ -1,5 +1,7 @@
 # Ledger — Retail Inventory & Billing Management
 
+**Live Demo URL**: [https://hkgynf-ip-106-192-160-23.tunnelmole.net](https://hkgynf-ip-106-192-160-23.tunnelmole.net)
+
 A full-stack web app for small/local retailers: product & inventory management,
 billing that auto-deducts stock, staff accountability, low-stock/expiry alerts,
 an AI business assistant, and sales dashboards.
